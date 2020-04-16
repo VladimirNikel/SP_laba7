@@ -1,60 +1,44 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h> 
 
-int socket(
-	int domain,		//создание сокета
-	int type,		//домен и семейство адресов AF_UNIX и AF_INET
-	int protocol	//протокол
-);
-
-int bind(			//связывание сокета сервера с адресом
-	int sockfd,				//дескриптор сокера
-	struct sockaddr *addr,	//указатель на структуру с адресом
-	int addrlen				//длина структуры адреса
-);
-
-int connect(
-	int sockfd,		//сокет, использующийся для обмена данными с сервером
-	struct sockaddr *serv adrr,	//указатель на структуру с адресов сервера
-	int addrlen 	//длина этой структуры
-);
-
-int send(
-	int sockfd,		//дескриптор сокета, через который отправляются данные
-	const void *msg,//указатель на буфер с данными
-	int len,		//длина буфера данных
-	int flags		//набор битовым флагов
-);
-
-int recv(
-	int sockfd,		//дескриптор сокета, через который считываются данные
-	void *buf,		//указатель на буфер
-	int len,		//длина буфера данных
-	int flags		//набор битовым флагов
-);
-
-int shutdown(
-	int sockfd,		//дескриптор сокета
-	int how			//0 - запрет чтенияб 1 - запрет записи, 2 - чтения и записи
-);
-
-int close(
-	int fd			//дескриптор сокета
-);
-
-int main(){
-	//инструкция:
-	//socket();
-	//bind();
-	//listen();
-	//accept();
-	//send();
-	//recv();
-	//shutdown();
-	//close();
-
-	return 0;
+void error(const char *msg){
+	perror(msg);
+	exit(0);
 }
 
-
-
+int main(int argc, char *argv[]){
+	int sockfd, port_number, n;
+	struct sockaddr_in serv_addr;
+	struct hostent *server;
+	char buffer[256];
+	port_number = atoi(argv[2]);
+	sockfd = socket(AF_INET, SOCK_STREAM, 0);
+	if(sockfd<0) error("Ошибка: не удалось открыть сокет\n");
+	server = gethostbyname(argv[1]);
+	if(server == NULL){
+		fprintf(stderr,"Ошибка: нет такого хоста\n");
+		exit(0);
+	}
+	bzero((char *) &serv_addr, sizeof(serv_addr));
+	serv_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *) &serv_addr.sin_addr.s_addr, server->h_length);
+	serv_addr.sin_port = htons(port_number);
+	if(connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) error("Ошибка в подключении\n");
+	printf("Введите Ваше сообщение: ");
+	bzero(buffer,256);
+	fgets(buffer,255,stdin);
+	n = write(sockfd,buffer,strlen(buffer));
+	if(n<0) error ("Ошибка: Запись в сокет невозможна\n");
+	bzero(buffer,256);
+	n = read(sockfd,buffer,255);
+	if(n<0) error("Ошибка: Чтение из сокета невозможно\n");
+	printf("%s\n",buffer);
+	close(sockfd);
+	return 0;
+}
